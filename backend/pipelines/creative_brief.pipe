@@ -1,0 +1,23 @@
+{
+  "components": [
+    {
+      "id": "in",
+      "provider": "webhook",
+      "config": {}
+    },
+    {
+      "id": "out",
+      "provider": "response",
+      "config": {
+        "laneName": "text"
+      },
+      "input": [
+        {
+          "lane": "text",
+          "from": "in"
+        }
+      ]
+    }
+  ],
+  "project_id": "634db8f4-26ab-4e38-aa64-c2419902631d"
+}

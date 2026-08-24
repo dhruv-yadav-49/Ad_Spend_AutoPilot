@@ -1,0 +1,64 @@
+{
+  "//": "Mixed-media step: takes proven-winner creative copy (text) plus the actual ad image/thumbnail, and audio from the top-performing video ad's voiceover, and writes the next brief. This is what keeps 'which message/format/audience combo worked' alive across team and platform changes - the memory node persists it.",
+  "components": [
+    {
+      "id": "in",
+      "provider": "dropper",
+      "config": {
+        "description": "Drop the winning creative record: {campaign_id, objective, audience, message_text, image_url, video_audio_url}"
+      }
+    },
+    {
+      "id": "creative_memory",
+      "provider": "memory_store",
+      "config": {
+        "description": "Long-term store keyed by audience+channel of which message/format/audience combos won. Survives team changes and platform switches - this is the 'record' the challenge brief asks for.",
+        "key": "audience+channel"
+      }
+    },
+    {
+      "id": "image_analyst",
+      "provider": "llm_openai_vision",
+      "config": {
+        "model": "gpt-4.1-mini",
+        "system": "Describe the visual hook, composition and format (static/UGC/carousel) of this ad image in 2 sentences a copywriter can act on."
+      },
+      "input": [{ "lane": "image_url", "from": "in" }]
+    },
+    {
+      "id": "audio_analyst",
+      "provider": "llm_openai_audio",
+      "config": {
+        "model": "whisper-1",
+        "description": "Transcribes + summarizes the winning video ad's voiceover/hook line."
+      },
+      "input": [{ "lane": "video_audio_url", "from": "in" }]
+    },
+    {
+      "id": "brief_writer",
+      "provider": "llm_openai",
+      "config": {
+        "model": "gpt-4.1-mini",
+        "system": "Write the next creative brief. Ground it in: (1) the proven message/audience combo pulled from creative_memory, (2) the visual hook from image_analyst, (3) the voiceover hook from audio_analyst. Output: recommended_message, brief (2-3 sentences), and 3 A/B tests to run next. If creative_memory has no prior record for this audience+channel, say so and mark confidence:'low' instead of guessing."
+      },
+      "input": [
+        { "lane": "past_winners", "from": "creative_memory" },
+        { "lane": "visual", "from": "image_analyst" },
+        { "lane": "voiceover", "from": "audio_analyst" },
+        { "lane": "campaign", "from": "in" }
+      ]
+    },
+    {
+      "id": "memory_write",
+      "provider": "memory_store",
+      "config": { "description": "Writes this cycle's result back so the next run (and the next teammate) benefits from it.", "mode": "write" },
+      "input": [{ "lane": "new_record", "from": "brief_writer" }]
+    },
+    {
+      "id": "out",
+      "provider": "response",
+      "config": { "laneName": "brief" },
+      "input": [{ "lane": "brief", "from": "brief_writer" }]
+    }
+  ]
+}

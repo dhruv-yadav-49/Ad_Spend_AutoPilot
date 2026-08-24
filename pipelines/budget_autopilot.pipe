@@ -1,0 +1,82 @@
+{
+  "//": "Ad Spend Autopilot - budget shift pipeline. Runs once per campaign in a batch. Data lanes (input) carry the record left to right; control connections are the dashed 'invoke' wires an agent uses to call a tool or another model. Verify exact provider ids against https://docs.rocketride.org/nodes before running - we could not reach that page while generating this file.",
+  "components": [
+    {
+      "id": "batch_in",
+      "provider": "webhook",
+      "config": {
+        "description": "Receives a batch payload: [{campaign_id, name, channel, daily_budget, spend, roas, cpa, pacing, top_creative_text}, ...]"
+      }
+    },
+    {
+      "id": "budget_tool",
+      "provider": "tool_http",
+      "config": {
+        "name": "propose_budget_change",
+        "description": "Given pacing + ROAS history, compute a recommended daily_budget within the allowed guardrail (max +/-25% per cycle).",
+        "method": "POST",
+        "url": "${BACKEND_URL}/internal/budget-suggestion"
+      }
+    },
+    {
+      "id": "analyst_agent",
+      "provider": "llm_openai",
+      "config": {
+        "model": "gpt-4.1-mini",
+        "system": "You are a performance-marketing analyst. For each campaign record, decide if daily_budget should change. Call propose_budget_change to get a numeric suggestion, then explain the reasoning in one sentence citing ROAS/CPA/pacing. Never invent numbers the tool did not return. If confidence is low (thin data, conflicting signals), say so explicitly and set confidence:'low'."
+      },
+      "input": [{ "lane": "record", "from": "batch_in" }],
+      "control": [{ "lane": "tool", "from": "budget_tool" }]
+    },
+    {
+      "id": "brand_safety_agent",
+      "provider": "llm_openai",
+      "config": {
+        "model": "gpt-4.1-mini",
+        "system": "You are a brand-safety reviewer. Check the campaign's top_creative_text and the analyst's proposed change for risky claims (guaranteed results, medical/financial claims, discriminatory targeting language). Output safe:true/false and flags[]. This is a second, independent check on the analyst_agent's output - do not simply agree with it."
+      },
+      "input": [{ "lane": "analyst_output", "from": "analyst_agent" }]
+    },
+    {
+      "id": "guardrail_gate",
+      "provider": "conditional",
+      "config": {
+        "description": "Routes to auto-apply only when brand_safety says safe AND the budget change is within the no-approval threshold (<=10%). Everything else goes to human_approval.",
+        "condition": "brand_safety_agent.safe == true and abs(analyst_agent.change_pct) <= 0.10 and analyst_agent.confidence != 'low'"
+      },
+      "input": [
+        { "lane": "analyst", "from": "analyst_agent" },
+        { "lane": "safety", "from": "brand_safety_agent" }
+      ]
+    },
+    {
+      "id": "auto_apply",
+      "provider": "tool_http",
+      "config": {
+        "method": "POST",
+        "url": "${BACKEND_URL}/budget/optimize",
+        "description": "Applies the change automatically because it passed guardrails."
+      },
+      "input": [{ "lane": "approved_change", "from": "guardrail_gate", "when": "true" }]
+    },
+    {
+      "id": "human_approval",
+      "provider": "tool_http",
+      "config": {
+        "method": "POST",
+        "url": "${BACKEND_URL}/approvals",
+        "description": "Files a pending Approval row instead of applying the change. A human clears it from the Approvals screen in the app. This is the human-in-the-loop gate for anything above the spend-change limit or below analyst confidence."
+      },
+      "input": [{ "lane": "needs_review", "from": "guardrail_gate", "when": "false" }]
+    },
+    {
+      "id": "out",
+      "provider": "response",
+      "config": { "laneName": "result" },
+      "input": [
+        { "lane": "auto", "from": "auto_apply" },
+        { "lane": "escalated", "from": "human_approval" }
+      ]
+    }
+  ]
+}

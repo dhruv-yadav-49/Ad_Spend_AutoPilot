@@ -1,0 +1,14 @@
+.rocketride/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+.env
+.DS_Store
+.vscode/
+.idea/
+.claude/
+dist/
+build/

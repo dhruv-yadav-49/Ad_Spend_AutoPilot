@@ -1,0 +1,48 @@
+{
+  "//": "Batch node: processes every active campaign's week of records in one run, not one call per campaign, so it scales to thousands of rows. Ends with a real-world action (sends the email) instead of just returning text.",
+  "components": [
+    {
+      "id": "batch_in",
+      "provider": "webhook",
+      "config": {
+        "description": "Called by Celery's weekly beat schedule with the full week's campaign + attribution rows.",
+        "batch": true
+      }
+    },
+    {
+      "id": "validator",
+      "provider": "tool_http",
+      "config": {
+        "method": "POST",
+        "url": "${BACKEND_URL}/internal/validate-week",
+        "description": "Rejects rows with missing spend/revenue or negative numbers before they reach the model, so a malformed feed can't produce a fabricated report."
+      },
+      "input": [{ "lane": "rows", "from": "batch_in" }]
+    },
+    {
+      "id": "report_agent",
+      "provider": "llm_openai",
+      "config": {
+        "model": "gpt-4.1-mini",
+        "system": "Summarize the week per channel and per campaign: spend, ROAS, CPA, what changed vs last week, and which budget/pause actions the autopilot took and why. Flag any campaign the validator dropped as 'excluded - bad data' rather than silently skipping it."
+      },
+      "input": [{ "lane": "clean_rows", "from": "validator" }]
+    },
+    {
+      "id": "send_email",
+      "provider": "tool_http",
+      "config": {
+        "method": "POST",
+        "url": "${BACKEND_URL}/internal/send-report-email",
+        "description": "Sends the weekly attribution report to the analyst distribution list. This is the required real-world action, not just a chat reply."
+      },
+      "input": [{ "lane": "report", "from": "report_agent" }]
+    },
+    {
+      "id": "out",
+      "provider": "response",
+      "config": { "laneName": "status" },
+      "input": [{ "lane": "sent", "from": "send_email" }]
+    }
+  ]
+}
