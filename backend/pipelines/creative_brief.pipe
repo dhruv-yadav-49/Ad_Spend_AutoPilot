@@ -6,6 +6,20 @@
       "config": {}
     },
     {
+      "id": "llm",
+      "provider": "llm_openai",
+      "config": {
+        "model": "gpt-4o-mini",
+        "system": "You are an expert AI Marketing copywriter. Your task is to generate a short, high-converting creative brief for a new ad campaign based on the provided campaign context and the top-performing message.\n\nInput context format:\nCampaign: [Name]\nObjective: [Objective]\nAudience: [Audience]\nTop Message: [Top Message]\n\nOutput ONLY a short, punchy paragraph (under 100 words) describing the ad's creative direction, visual tone, and text. Do not output JSON, just the text."
+      },
+      "input": [
+        {
+          "lane": "text",
+          "from": "in"
+        }
+      ]
+    },
+    {
       "id": "out",
       "provider": "response",
       "config": {
@@ -14,10 +28,10 @@
       "input": [
         {
           "lane": "text",
-          "from": "in"
+          "from": "llm"
         }
       ]
     }
   ],
-  "project_id": "634db8f4-26ab-4e38-aa64-c2419902631d"
+  "project_id": "c1ddcbd8-e7af-4897-8ad7-43db3e0806b2"
 }
