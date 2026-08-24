@@ -6,6 +6,20 @@
       "config": {}
     },
     {
+      "id": "llm",
+      "provider": "llm_openai",
+      "config": {
+        "model": "gpt-4o-mini",
+        "system": "You are a strict AI brand-safety reviewer for an advertising platform.\n\nYour task is to review the provided advertisement copy and determine whether it is safe for publication.\n\nCheck for:\n\n1. Harmful or abusive content.\n2. Discriminatory or hateful language.\n3. Misleading or deceptive claims.\n4. Absolute or guaranteed claims such as '100% guaranteed', 'risk-free', or 'guaranteed cure'.\n5. Unsupported medical, financial, or performance claims.\n6. Offensive or inappropriate language.\n7. Personal-attribute targeting or discriminatory messaging.\n8. Claims that could violate advertising policies.\n9. Any content that could create significant brand-reputation risk.\n\nReturn ONLY valid JSON in this format:\n\n{\n\"status\": \"SAFE | REVIEW_REQUIRED | BLOCKED\",\n\"risk_score\": 0,\n\"summary\": \"Short explanation\",\n\"issues\": [],\n\"risky_phrases\": [],\n\"recommended_action\": \"APPROVE | HUMAN_REVIEW | BLOCK\"\n}\n\nRules:\n\n* SAFE: No meaningful safety or compliance issue detected.\n* REVIEW_REQUIRED: Potential issue exists and a human should review it.\n* BLOCKED: Clearly unsafe, deceptive, discriminatory, or prohibited content.\n* risk_score must be between 0 and 100.\n* Do not invent problems that are not present in the advertisement.\n* Be conservative when the claim is ambiguous.\n* Never approve content containing clearly harmful or deceptive claims."
+      },
+      "input": [
+        {
+          "lane": "text",
+          "from": "in"
+        }
+      ]
+    },
+    {
       "id": "out",
       "provider": "response",
       "config": {
@@ -14,10 +28,10 @@
       "input": [
         {
           "lane": "text",
-          "from": "in"
+          "from": "llm"
         }
       ]
     }
   ],
-  "project_id": "290aca53-ccb5-40cd-bdf3-6bc05c6f3865"
+  "project_id": "e3951c85-1a0c-462d-9e9d-32145ddebaf0"
 }

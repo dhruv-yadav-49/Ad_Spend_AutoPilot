@@ -1,3 +1,4 @@
+import json
 from collections import defaultdict
 from .models import Campaign,Approval,AutomationEvent,Creative
 from rocketride import RocketRideClient
@@ -54,5 +55,18 @@ async def creative_brief(db,campaign_id,objective):
 
 async def safety_review(text):
     rocket_output = await run_pipeline('../pipelines/brand_safety.pipe', text)
-    risky=[x for x in ["guaranteed","cure","risk-free","hate","discrimination"] if x in text.lower()]
-    return {"safe":not risky,"flags":risky,"recommendation": rocket_output if rocket_output else ("Approved" if not risky else "Send for human review")}
+    
+    try:
+        # Try parsing JSON if LLM returns the structured format
+        data = json.loads(rocket_output)
+        is_safe = data.get("status") == "SAFE"
+        flags = data.get("risky_phrases", [])
+        recommendation = f"[{data.get('recommended_action', '')}] {data.get('summary', '')}"
+    except Exception:
+        # Fallback for plain string or error
+        risky=[x for x in ["guaranteed","cure","risk-free","hate","discrimination"] if x in text.lower()]
+        is_safe = not risky
+        flags = risky
+        recommendation = rocket_output if rocket_output else ("Approved" if is_safe else "Send for human review")
+
+    return {"safe": is_safe, "flags": flags, "recommendation": recommendation}
