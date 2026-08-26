@@ -12,3 +12,6 @@ venv/
 .claude/
 dist/
 build/
+backend/adspend.db
+backend/adspend.db.bak
+backend/scratch/

@@ -19,3 +19,5 @@ redis>=5.0,<7
 openai>=1.0,<3
 rocketride>=0.1.0
 python-dotenv>=1.0.0
+slowapi>=0.1.9
+google-ads==24.1.0
